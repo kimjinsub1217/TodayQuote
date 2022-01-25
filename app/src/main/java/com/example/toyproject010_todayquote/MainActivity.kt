@@ -3,6 +3,12 @@ package com.example.toyproject010_todayquote
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.viewpager2.widget.ViewPager2
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.remoteconfig.ktx.get
+import com.google.firebase.remoteconfig.ktx.remoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -15,17 +21,51 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        initViews()
+        initData()
     }
 
     private fun initViews() {
-        viewPager.adapter = QuotesPagerAdaper(
-            listOf(
-                Quote(
-                    "가장 하기 힘든 일은 아무 일도 안하는 것이다.",
-                    "유대인 격언"
-                )
+
+    }
+
+    private fun initData() {
+        val remoteConfig = Firebase.remoteConfig
+        remoteConfig.setConfigSettingsAsync(
+            remoteConfigSettings {
+                minimumFetchIntervalInSeconds = 0
+            }
+        )
+        remoteConfig.fetchAndActivate().addOnCompleteListener {
+            if (it.isSuccessful) {
+                val quotes = parseQuotesJson(remoteConfig.getString("quotes"))
+                val isNameRevealed = remoteConfig.getBoolean("is_name_revealed")
+                displaQuotesPager(quotes, isNameRevealed)
+
+            }
+        }
+    }
+
+    private fun parseQuotesJson(json: String): List<Quote> {
+        val jsonArray = JSONArray(json)
+        var jsonList = emptyList<JSONObject>()
+        for (index in 0 until jsonArray.length()) {
+            val jsonObject = jsonArray.getJSONObject(index)
+            jsonObject?.let {
+                jsonList = jsonList + it
+            }
+        }
+        return jsonList.map {
+            Quote(
+                quote = it.getString("quote"),
+                name = it.getString("name")
             )
+        }
+    }
+
+    private fun displaQuotesPager(quotes: List<Quote>, isNameRevealed: Boolean) {
+        viewPager.adapter = QuotesPagerAdaper(
+            quotes = quotes,
+            isNameRevealed = isNameRevealed
         )
     }
 }
